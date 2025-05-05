@@ -1,0 +1,14 @@
+@startuml
+actor Operator
+participant MES_UI
+participant OrderService
+participant Cache
+participant Database
+
+Operator -> MES_UI : Изменить статус заказа
+MES_UI -> OrderService : Обновить статус
+OrderService -> Database : Обновить запись
+Database --> OrderService : OK
+OrderService -> Cache : Обновить кеш по ключу
+OrderService --> MES_UI : Ответ с новым статусом
+@enduml
