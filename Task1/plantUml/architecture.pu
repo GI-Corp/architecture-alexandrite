@@ -1,0 +1,75 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+skinparam linetype ortho
+LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
+
+' Пользователи
+Person(b2c, "Клиент B2C", "Создаёт и отслеживает заказы через онлайн-магазин")
+Person(seller, "Продавец", "Работает с заказами в CRM")
+Person(operator, "Оператор", "Контролирует заказы через MES")
+Person(admin, "Администратор", "Следит за системой и инфраструктурой")
+
+System_Boundary(c1, "Система «Александрит»") {
+
+    ' Вход и авторизация
+    Container(apiGateway, "API Gateway", "Kong / NGINX", "Центральная точка входа, маршрутизация и безопасность")
+    Container(sso, "Identity Management", "Keycloak / Auth0", "OAuth2, OpenID Connect")
+
+    ' Пользовательские интерфейсы
+    Container(webshop, "Онлайн-магазин", "Vue + Spring Boot", "Оформление заказов и трекинг")
+    Container(crm, "CRM", "Vue + Spring Boot", "Управление заказами продавцами")
+    Container(mes, "MES", "React + C#", "Контроль производства")
+
+    ' Хранилище
+    ContainerDb(pgsql, "PostgreSQL", "Реляционная БД", "Хранит все данные")
+    Container(redis, "Redis Cache", "In-memory", "Кэш заказов, фильтров")
+
+    ' Интеграции
+    Container(kafka, "Event Bus", "Kafka / RabbitMQ", "Обмен событиями")
+    Container(monitoring, "Monitoring", "Prometheus, Grafana, ELK", "Наблюдаемость, алерты")
+    Container_Ext(paymentAPI, "Платёжные шлюзы", "Внешняя система", "Обработка платежей")
+    Container_Ext(deliveryAPI, "Транспортные компании", "Внешняя система", "Доставка и статусы")
+
+}
+
+' Взаимодействия пользователей
+b2c --> apiGateway : Web/Mobile
+seller --> apiGateway : Через CRM
+operator --> apiGateway : Через MES
+admin --> monitoring : Метрики и логи
+
+' Gateway и SSO
+apiGateway --> sso : OAuth / OIDC
+apiGateway --> webshop
+apiGateway --> crm
+apiGateway --> mes
+
+' Приложения и БД
+webshop --> pgsql
+crm --> pgsql
+mes --> pgsql
+
+' Кэш
+webshop --> redis
+crm --> redis
+mes --> redis
+
+' События
+webshop --> kafka : OrderSubmitted
+crm --> kafka : OrderApproved
+mes --> kafka : Started, Shipped
+kafka --> webshop
+kafka --> crm
+
+' Интеграции
+webshop --> paymentAPI
+mes --> deliveryAPI
+
+' Наблюдаемость
+webshop --> monitoring
+crm --> monitoring
+mes --> monitoring
+apiGateway --> monitoring
+
+@enduml

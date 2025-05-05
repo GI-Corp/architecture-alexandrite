@@ -1,0 +1,20 @@
+@startuml
+actor User
+participant MES_UI
+participant OrderService
+participant Cache
+participant Database
+
+User -> MES_UI : Запрос списка заказов
+MES_UI -> OrderService : Получить список заказов
+OrderService -> Cache : Проверить наличие в кеше
+alt Данные найдены
+    Cache --> OrderService : Вернуть список
+else Данные не найдены
+    OrderService -> Database : Запрос к БД
+    Database --> OrderService : Список заказов
+    OrderService -> Cache : Сохранить в кеш
+end
+OrderService --> MES_UI : Вернуть список
+MES_UI --> User : Отобразить
+@enduml

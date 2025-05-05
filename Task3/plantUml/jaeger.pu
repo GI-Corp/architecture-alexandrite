@@ -1,0 +1,40 @@
+@startuml
+!includeurl https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Container.puml
+
+title Архитектура трейсинга - Контейнерная диаграмма
+
+Person(user, "Пользователь")
+System(eshop, "eshop", "Frontend/Backend для оформления заказов")
+System(MES, "MES", "Производственная система")
+System(CRM, "CRM", "Система учёта клиентов")
+System(partner, "B2B-партнёр", "Интеграция через API")
+
+Container_Boundary(Observability, "Observability Stack") {
+    Container(otel, "OpenTelemetry SDK", "Embedded в каждый сервис", "Сбор трейсинг-данных")
+    Container(jaeger, "Jaeger", "Backend", "Хранение и визуализация трейсов")
+    Container(prometheus, "Prometheus", "Monitoring", "Сбор метрик")
+    Container(grafana, "Grafana", "Dashboard", "Визуализация метрик и алертов")
+}
+
+System_Ext(rabbit, "RabbitMQ", "Очередь сообщений")
+System_Ext(s3, "S3", "Хранение 3D-моделей")
+
+Rel(user, eshop, "Создаёт заказ")
+Rel(eshop, rabbit, "Публикует заказ")
+Rel(MES, rabbit, "Читает и отвечает на заказ")
+Rel(MES, CRM, "Обновляет статус")
+Rel(CRM, MES, "Подтверждает производство")
+Rel(MES, s3, "Скачивает 3D-модель")
+Rel(eshop, s3, "Загружает 3D-модель")
+Rel(partner, MES, "Вызывает API")
+
+Rel(eshop, otel, "Отправляет трейсинг")
+Rel(MES, otel, "Отправляет трейсинг")
+Rel(CRM, otel, "Отправляет трейсинг")
+
+Rel(otel, jaeger, "Отправляет трейсы")
+Rel(otel, prometheus, "Отправляет метрики")
+Rel(prometheus, grafana, "Источник данных")
+Rel(jaeger, grafana, "Интеграция с Jaeger UI")
+
+@enduml

@@ -1,0 +1,19 @@
+@startuml
+!includeurl https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Container.puml
+
+System_Boundary(s1, "Digital Manufacturing Platform") {
+    Container(eshop, "Eshop", "Node.js", "Платформа заказов")
+    Container(crm, "CRM", "Python", "Управление клиентами")
+    Container(mes, "MES", "Java", "Управление производством")
+    Container(logstash, "Logstash", "Log Pipeline", "Прием и маршрутизация логов")
+    Container(elasticsearch, "Elasticsearch", "Storage", "Хранение логов")
+    Container(kibana, "Kibana", "UI", "Интерфейс анализа логов")
+}
+
+Rel(eshop, logstash, "Пишет логи")
+Rel(crm, logstash, "Пишет логи")
+Rel(mes, logstash, "Пишет логи")
+Rel(logstash, elasticsearch, "Отправка логов")
+Rel(kibana, elasticsearch, "Чтение логов")
+
+@enduml
