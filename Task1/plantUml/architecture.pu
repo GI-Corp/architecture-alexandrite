@@ -1,71 +1,73 @@
 @startuml
-!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+skinparam linetype ortho
 LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
 
 ' Пользователи
 Person(b2c, "Клиент B2C", "Создаёт и отслеживает заказы через онлайн-магазин")
 Person(seller, "Продавец", "Работает с заказами в CRM")
 Person(operator, "Оператор", "Контролирует заказы через MES")
-Person(admin, "Администратор", "Следит за состоянием системы")
+Person(admin, "Администратор", "Следит за системой и инфраструктурой")
 
 System_Boundary(c1, "Система «Александрит»") {
 
-    ' Технические компоненты
-    Container(apiGateway, "API Gateway", "Kong / NGINX", "Централизованная точка входа для всех запросов. Реализует маршрутизацию, безопасность и контроль доступа.")
-    Container(sso, "Identity Management (SSO)", "Keycloak / Auth0", "Централизованная аутентификация и авторизация (OAuth 2.0, OpenID Connect)")
+    ' Вход и авторизация
+    Container(apiGateway, "API Gateway", "Kong / NGINX", "Центральная точка входа, маршрутизация и безопасность")
+    Container(sso, "Identity Management", "Keycloak / Auth0", "OAuth2, OpenID Connect")
 
-    ' Приложения
-    Container(webshop, "Онлайн-магазин", "Vue + Spring Boot", "Позволяет пользователям заказывать украшения, загружать модели, отслеживать статусы")
-    Container(crm, "CRM", "Vue + Spring Boot", "Интерфейс продавцов для подтверждения и сопровождения заказов")
-    Container(mes, "MES", "React + C#", "Операторы видят очередь заказов и меняют их статусы по ходу производства")
+    ' Пользовательские интерфейсы
+    Container(webshop, "Онлайн-магазин", "Vue + Spring Boot", "Оформление заказов и трекинг")
+    Container(crm, "CRM", "Vue + Spring Boot", "Управление заказами продавцами")
+    Container(mes, "MES", "React + C#", "Контроль производства")
 
-    ' Инфраструктура
-    Container(redis, "Кэш Redis", "In-memory key-value store", "Хранит временные и часто запрашиваемые данные (дашборды, статусы заказов)")
-    ContainerDb(pgsql, "PostgreSQL", "Реляционная БД", "Основное хранилище заказов, пользователей, производственных данных. Настроена репликация и бэкапы")
-    Container(kafka, "Event Bus", "Kafka / RabbitMQ", "Асинхронная коммуникация между сервисами. Позволяет обрабатывать события независимо")
+    ' Хранилище
+    ContainerDb(pgsql, "PostgreSQL", "Реляционная БД", "Хранит все данные")
+    Container(redis, "Redis Cache", "In-memory", "Кэш заказов, фильтров")
 
-    ' Мониторинг и логирование
-    Container(monitoring, "Monitoring & Observability", "Prometheus, Grafana, ELK, Jaeger", "Наблюдаемость, логирование, трассировка, алерты")
-
-    ' Внешние системы
-    Container_Ext(paymentAPI, "Платёжные шлюзы", "Внешняя система", "Обработка платёжных транзакций")
-    Container_Ext(deliveryAPI, "Транспортные компании", "Внешняя система", "Обработка доставки и обновление статусов")
+    ' Интеграции
+    Container(kafka, "Event Bus", "Kafka / RabbitMQ", "Обмен событиями")
+    Container(monitoring, "Monitoring", "Prometheus, Grafana, ELK", "Наблюдаемость, алерты")
+    Container_Ext(paymentAPI, "Платёжные шлюзы", "Внешняя система", "Обработка платежей")
+    Container_Ext(deliveryAPI, "Транспортные компании", "Внешняя система", "Доставка и статусы")
 
 }
 
-' Пользователи
-b2c --> apiGateway : Взаимодействие через Web/Mobile
-seller --> apiGateway : Работа через CRM
-operator --> apiGateway : Работа через MES
-admin --> monitoring : Анализ логов и метрик
+' Взаимодействия пользователей
+b2c --> apiGateway : Web/Mobile
+seller --> apiGateway : Через CRM
+operator --> apiGateway : Через MES
+admin --> monitoring : Метрики и логи
 
-' API Gateway как центральная точка входа
-apiGateway --> sso : Аутентификация и авторизация
-apiGateway --> webshop : Проксирует запросы клиентов
-apiGateway --> crm : Проксирует запросы продавцов
-apiGateway --> mes : Проксирует запросы операторов
+' Gateway и SSO
+apiGateway --> sso : OAuth / OIDC
+apiGateway --> webshop
+apiGateway --> crm
+apiGateway --> mes
 
 ' Приложения и БД
-webshop --> pgsql : Хранение заказов, моделей
-crm --> pgsql : Доступ к заказам, клиентам
-mes --> pgsql : Обновление производственных статусов
-webshop --> redis : Чтение/запись кэшированных данных
-crm --> redis : Кэширование фильтров, заказов
-mes --> redis : Кэширование очередей
+webshop --> pgsql
+crm --> pgsql
+mes --> pgsql
 
-' Асинхронная коммуникация
+' Кэш
+webshop --> redis
+crm --> redis
+mes --> redis
+
+' События
 webshop --> kafka : OrderSubmitted
 crm --> kafka : OrderApproved
-mes --> kafka : ManufacturingStarted, Shipped
-kafka --> crm : События из MES
-kafka --> webshop : События об оплате/отгрузке
+mes --> kafka : Started, Shipped
+kafka --> webshop
+kafka --> crm
 
 ' Интеграции
-webshop --> paymentAPI : Проведение оплаты
-mes --> deliveryAPI : Передача в службу доставки
+webshop --> paymentAPI
+mes --> deliveryAPI
 
 ' Наблюдаемость
-webshop --> monitoring : Метрики, логи, трейсинг
+webshop --> monitoring
 crm --> monitoring
 mes --> monitoring
 apiGateway --> monitoring
